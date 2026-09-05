@@ -12,25 +12,27 @@ var record = deviceDriver.mSurface.makeButton(4, 0, 2, 1)
 play.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 115)
 stop.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 114)
 record.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 113)
-var page = deviceDriver.mMapping.makePage('Transport')
-page.makeCommandBinding(play.mSurfaceValue, 'Transport', 'Start')
-page.makeCommandBinding(stop.mSurfaceValue, 'Transport', 'Stop')
-page.makeCommandBinding(record.mSurfaceValue, 'Transport', 'Record')
-var mixer = deviceDriver.mMapping.makePage('Selected Track Mixer')
+// Mapping pages are exclusive in Cubase: only the page currently selected in
+// MIDI Remote receives input. Keep every non-overlapping control on one page
+// so the command-line/MCP bridge remains active even while its UI is showing
+// the plugin section.
+var controlPage = deviceDriver.mMapping.makePage('Cubase Agent')
+controlPage.makeCommandBinding(play.mSurfaceValue, 'Transport', 'Start')
+controlPage.makeCommandBinding(stop.mSurfaceValue, 'Transport', 'Stop')
+controlPage.makeCommandBinding(record.mSurfaceValue, 'Transport', 'Record')
 var volume = deviceDriver.mSurface.makeFader(0, 2, 2, 6).setTypeVertical()
 var pan = deviceDriver.mSurface.makeKnob(3, 2, 2, 2)
 var mute = deviceDriver.mSurface.makeButton(5, 2, 2, 1)
 var solo = deviceDriver.mSurface.makeButton(7, 2, 2, 1)
-var selected = mixer.mHostAccess.mTrackSelection.mMixerChannel
+var selected = controlPage.mHostAccess.mTrackSelection.mMixerChannel
 volume.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 20).setTypeAbsolute()
 pan.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 21).setTypeAbsolute()
 mute.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 22).setTypeAbsolute()
 solo.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 23).setTypeAbsolute()
-mixer.makeValueBinding(volume.mSurfaceValue, selected.mValue.mVolume)
-mixer.makeValueBinding(pan.mSurfaceValue, selected.mValue.mPan)
-mixer.makeValueBinding(mute.mSurfaceValue, selected.mValue.mMute).setTypeToggle()
-mixer.makeValueBinding(solo.mSurfaceValue, selected.mValue.mSolo).setTypeToggle()
-var eqPage = deviceDriver.mMapping.makePage('Channel EQ')
+controlPage.makeValueBinding(volume.mSurfaceValue, selected.mValue.mVolume)
+controlPage.makeValueBinding(pan.mSurfaceValue, selected.mValue.mPan)
+controlPage.makeValueBinding(mute.mSurfaceValue, selected.mValue.mMute).setTypeToggle()
+controlPage.makeValueBinding(solo.mSurfaceValue, selected.mValue.mSolo).setTypeToggle()
 var eq = selected.mChannelEQ
 for (var bi = 0; bi < 4; bi++) {
   var band = eq['mBand' + (bi + 1)]
@@ -42,12 +44,11 @@ for (var bi = 0; bi < 4; bi++) {
   freq.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 41 + bi * 4).setTypeAbsolute()
   quality.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 42 + bi * 4).setTypeAbsolute()
   on.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 43 + bi * 4).setTypeAbsolute()
-  eqPage.makeValueBinding(gain.mSurfaceValue, band.mGain)
-  eqPage.makeValueBinding(freq.mSurfaceValue, band.mFreq)
-  eqPage.makeValueBinding(quality.mSurfaceValue, band.mQ)
-  eqPage.makeValueBinding(on.mSurfaceValue, band.mOn).setTypeToggle()
+  controlPage.makeValueBinding(gain.mSurfaceValue, band.mGain)
+  controlPage.makeValueBinding(freq.mSurfaceValue, band.mFreq)
+  controlPage.makeValueBinding(quality.mSurfaceValue, band.mQ)
+  controlPage.makeValueBinding(on.mSurfaceValue, band.mOn).setTypeToggle()
 }
-var insertsPage = deviceDriver.mMapping.makePage('Inserts')
 var insertViewer = selected.mInsertAndStripEffects.makeInsertEffectViewer('Selected Track Inserts')
 var insertIdentities = []
 var parameterIdentities = []
@@ -75,9 +76,8 @@ for (var ii = 0; ii < 8; ii++) {
   bindInsertIdentity(insertSlot, ii + 1)
   var bypass = deviceDriver.mSurface.makeButton(ii % 4 * 2, 24 + Math.floor(ii / 4) * 3, 2, 1)
   bypass.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 60 + ii).setTypeAbsolute()
-  insertsPage.makeValueBinding(bypass.mSurfaceValue, insertSlot.mBypass).setTypeToggle()
+  controlPage.makeValueBinding(bypass.mSurfaceValue, insertSlot.mBypass).setTypeToggle()
 }
-var pluginPage = deviceDriver.mMapping.makePage('Plugin Parameters')
 var pluginSlot = selected.mInsertAndStripEffects.makeInsertEffectViewer('Selected Insert Parameters').accessSlotAtIndex(0)
 function bindParameterIdentity(parameterValue, parameterIndex) {
   parameterValue.mOnTitleChange = function (activeDevice, activeMapping, objectTitle, valueTitle) {
@@ -93,5 +93,5 @@ for (var pi = 0; pi < 8; pi++) {
   bindParameterIdentity(parameter, pi + 1)
   var parameterKnob = deviceDriver.mSurface.makeKnob(pi * 2, 30, 2, 2)
   parameterKnob.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 80 + pi).setTypeAbsolute()
-  pluginPage.makeValueBinding(parameterKnob.mSurfaceValue, parameter)
+  controlPage.makeValueBinding(parameterKnob.mSurfaceValue, parameter)
 }
