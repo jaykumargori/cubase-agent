@@ -7,7 +7,15 @@ typedef struct { unsigned int len; unsigned char data[256]; } CAMessage;
 static CAMessage ca_queue[64];
 static unsigned int ca_head = 0, ca_tail = 0;
 static pthread_mutex_t ca_lock = PTHREAD_MUTEX_INITIALIZER;
-static int ca_match(CFStringRef s, const char *want) { char buf[256]; return s && CFStringGetCString(s, buf, sizeof(buf), kCFStringEncodingUTF8) && strcmp(buf, want) == 0; }
+// Audio MIDI Setup exposes IAC buses as "IAC Driver <bus name>" on some
+// macOS versions, while other CoreMIDI clients report only the bus name.
+// Prefer an exact match, then accept the configured bus name as a suffix.
+static int ca_match(CFStringRef s, const char *want) {
+  char buf[256];
+  if (!s || !CFStringGetCString(s, buf, sizeof(buf), kCFStringEncodingUTF8)) return 0;
+  size_t actualLen = strlen(buf), wantedLen = strlen(want);
+  return strcmp(buf, want) == 0 || (actualLen > wantedLen && strcmp(buf + actualLen - wantedLen, want) == 0);
+}
 static void ca_read(const MIDIPacketList *list, void *context, void *sourceContext) {
   const MIDIPacket *packet = &list->packet[0];
   for (UInt32 i = 0; i < list->numPackets; i++) {

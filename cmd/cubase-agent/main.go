@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jaykumargori/cubase-agent/internal/cubase"
+	"github.com/jaykumargori/cubase-agent/internal/mcp"
 	"github.com/jaykumargori/cubase-agent/internal/midi"
 	"github.com/jaykumargori/cubase-agent/internal/protocol"
 	"math"
@@ -26,6 +27,12 @@ func main() {
 	}
 	b := cubase.Bridge{MIDI: c}
 	switch os.Args[1] {
+	case "mcp":
+		if err := (mcp.Server{Controller: &b, In: os.Stdin, Out: os.Stdout}).Run(); err != nil {
+			fmt.Fprintln(os.Stderr, "[ERROR] MCP server:", err)
+			os.Exit(1)
+		}
+		return
 	case "play":
 		report(b.Play(), "transport.play")
 	case "stop":
@@ -69,11 +76,11 @@ func main() {
 		}
 		report(b.SetInsertBypass(slot, onOff(os.Args, 3)), "insert.bypass.set")
 	case "insert":
-		handleInsert(os.Args, &b)
+		handleInsert(os.Args, &b, c)
 		return
 	case "inserts":
-		fmt.Fprintln(os.Stderr, "[ERROR] insert discovery is unavailable through the current one-way MIDI Remote bridge")
-		os.Exit(3)
+		reportInsertSnapshot(c, 0)
+		return
 	case "plugin-param":
 		if len(os.Args) < 4 {
 			usage()
@@ -168,7 +175,7 @@ func report(err error, command string) {
 	}
 	fmt.Println("[INFO] command", command, "sent")
 }
-func handleInsert(args []string, b *cubase.Bridge) {
+func handleInsert(args []string, b *cubase.Bridge, client *midi.Client) {
 	if len(args) < 4 {
 		usage()
 		os.Exit(2)
@@ -182,8 +189,8 @@ func handleInsert(args []string, b *cubase.Bridge) {
 	case "bypass":
 		report(b.SetInsertBypass(slot, onOff(args, 4)), "insert.bypass.set")
 	case "params":
-		fmt.Fprintln(os.Stderr, "[ERROR] named parameter discovery is unavailable; use plugin-param 1..8 0..1 for insert slot 1")
-		os.Exit(3)
+		reportInsertSnapshot(client, slot)
+		return
 	case "set":
 		if slot != 1 {
 			fmt.Fprintln(os.Stderr, "[ERROR] generic parameter bank is currently mapped only for insert slot 1")
@@ -205,6 +212,45 @@ func handleInsert(args []string, b *cubase.Bridge) {
 	}
 }
 
+func reportInsertSnapshot(client *midi.Client, requestedSlot int) {
+	deadline := time.Now().Add(3 * time.Second)
+	events := make([]protocol.Feedback, 0, 16)
+	for time.Now().Before(deadline) {
+		remaining := time.Until(deadline)
+		if remaining > 250*time.Millisecond {
+			remaining = 250 * time.Millisecond
+		}
+		frame, err := client.Receive(remaining)
+		if err != nil {
+			continue
+		}
+		feedback, err := protocol.DecodeFeedback(frame)
+		if err == nil {
+			events = append(events, feedback)
+		}
+	}
+	snapshots := cubase.BuildInsertSnapshots(events)
+	found := false
+	for _, snapshot := range snapshots {
+		if requestedSlot != 0 && snapshot.Slot != requestedSlot {
+			continue
+		}
+		found = true
+		if requestedSlot == 0 {
+			fmt.Printf("[INFO] insert slot=%d name=%q vendor=%q version=%q format=%q bypassed=%t\n", snapshot.Slot, snapshot.Name, snapshot.Vendor, snapshot.Version, snapshot.Format, snapshot.Bypassed)
+			continue
+		}
+		fmt.Printf("[INFO] insert slot=%d name=%q vendor=%q bypassed=%t\n", snapshot.Slot, snapshot.Name, snapshot.Vendor, snapshot.Bypassed)
+		for _, parameter := range snapshot.Parameters {
+			fmt.Printf("[INFO] parameter id=%s name=%q value=%.4f display=%q\n", parameter.ID, parameter.Name, parameter.NormalizedValue, parameter.DisplayValue)
+		}
+	}
+	if !found {
+		fmt.Fprintln(os.Stderr, "[ERROR] no insert feedback received; reload the Cubase MIDI Remote script with the target track selected, then retry")
+		os.Exit(1)
+	}
+}
+
 func usage() {
-	fmt.Println("cubase-agent status|feedback|play|stop|record|volume 0..1|pan -1..1|mute on|off|solo on|off|eq <gain|freq|q|enable> <band> <value>|inserts|insert <slot> bypass on|off|insert 1 set <parameter 1..8> <value 0..1>")
+	fmt.Println("cubase-agent mcp|status|feedback|play|stop|record|volume 0..1|pan -1..1|mute on|off|solo on|off|eq <gain|freq|q|enable> <band> <value>|inserts|insert <slot> params|bypass on|off|insert 1 set <parameter 1..8> <value 0..1>")
 }

@@ -13,5 +13,9 @@ After installing the MIDI Remote script:
 9. Run `cubase-agent insert 1 bypass on` and verify insert slot 1 is bypassed.
 10. Run `cubase-agent feedback`, then change a mapped control in Cubase; a
     typed feedback message should be printed within two seconds.
+11. With the target track selected, reload the MIDI Remote script, then run
+    `cubase-agent inserts`. The active insert slots should be listed.
+12. Run `cubase-agent insert 1 params`. The generic eight-parameter bank for
+    slot 1 should show parameter names, normalized values, and display values.
 
 `record` is implemented but should only be tested in a disposable project.

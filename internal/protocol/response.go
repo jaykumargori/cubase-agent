@@ -5,6 +5,13 @@ import (
 	"sync"
 )
 
+const (
+	InsertIdentity          = "insert.identity"
+	InsertParameterIdentity = "insert.parameter.identity"
+	InsertParameterDisplay  = "insert.parameter.display"
+	InsertParameterValue    = "insert.parameter.value"
+)
+
 type Response struct {
 	ID      uint32
 	Status  string
@@ -31,7 +38,7 @@ func DecodeFeedback(frame []byte) (Feedback, error) {
 		parts := splitTextParts(frame[8 : len(frame)-1])
 		switch frame[5] {
 		case 1:
-			feedback.Type = "insert.identity"
+			feedback.Type = InsertIdentity
 			if len(parts) > 0 {
 				feedback.Name = parts[0]
 			}
@@ -45,12 +52,12 @@ func DecodeFeedback(frame []byte) (Feedback, error) {
 				feedback.Format = parts[3]
 			}
 		case 2:
-			feedback.Type = "insert.parameter.identity"
+			feedback.Type = InsertParameterIdentity
 			if len(parts) > 0 {
 				feedback.Name = parts[0]
 			}
 		case 3:
-			feedback.Type = "insert.parameter.display"
+			feedback.Type = InsertParameterDisplay
 			if len(parts) > 0 {
 				feedback.DisplayValue = parts[0]
 			}
@@ -95,7 +102,7 @@ func DecodeFeedback(frame []byte) (Feedback, error) {
 		feedback.Type = InsertBypass
 		feedback.Slot = cc - 59
 	case cc >= 80 && cc <= 87:
-		feedback.Type = "insert.parameter.value"
+		feedback.Type = InsertParameterValue
 		feedback.Slot = 1
 		feedback.Parameter = cc - 79
 	default:

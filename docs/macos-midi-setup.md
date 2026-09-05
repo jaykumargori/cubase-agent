@@ -9,3 +9,6 @@
 
 The CLI sends commands to `CubaseAgent Out` and listens for Cubase feedback on
 `CubaseAgent In`. Both ports are required by `cubase-agent status`.
+
+macOS may display these as `IAC Driver CubaseAgent Out` and `IAC Driver
+CubaseAgent In`. The agent accepts either display form.
