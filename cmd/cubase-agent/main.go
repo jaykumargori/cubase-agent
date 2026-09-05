@@ -27,6 +27,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "[ERROR] %v\n\nExpected: %s\nSee: docs/macos-midi-setup.md\n", e, port)
 		os.Exit(1)
 	}
+	defer c.Close()
 	b := cubase.Bridge{MIDI: c}
 	switch os.Args[1] {
 	case "mcp":

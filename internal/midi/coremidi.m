@@ -57,3 +57,8 @@ int ca_receive(unsigned char *bytes, int maxLen) {
 int ca_send(MIDIPortRef port, MIDIEndpointRef endpoint, const unsigned char *bytes, int len) {
   Byte buffer[256]; if (len > (int)sizeof(buffer) - 100) return -1; MIDIPacketList *list = (MIDIPacketList *)buffer; MIDIPacket *packet = MIDIPacketListInit(list); packet = MIDIPacketListAdd(list, sizeof(buffer), packet, 0, len, bytes); return packet ? MIDISend(port, endpoint, list) : -2;
 }
+void ca_close(MIDIClientRef client, MIDIPortRef outputPort, MIDIPortRef inputPort) {
+  if (inputPort) MIDIPortDispose(inputPort);
+  if (outputPort) MIDIPortDispose(outputPort);
+  if (client) MIDIClientDispose(client);
+}

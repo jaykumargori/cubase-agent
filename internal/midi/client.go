@@ -11,6 +11,7 @@ int ca_open(const char*, MIDIClientRef*, MIDIPortRef*, MIDIEndpointRef*);
 int ca_connect_input(MIDIClientRef, const char*, MIDIPortRef*, MIDIEndpointRef*);
 int ca_send(MIDIPortRef, MIDIEndpointRef, const unsigned char*, int);
 int ca_receive(unsigned char*, int);
+void ca_close(MIDIClientRef, MIDIPortRef, MIDIPortRef);
 */
 import "C"
 import (
@@ -69,5 +70,16 @@ func (c *Client) Send(b []byte) error {
 	if C.ca_send(c.port, c.endpoint, (*C.uchar)(unsafe.Pointer(&b[0])), C.int(len(b))) != 0 {
 		return errors.New("CoreMIDI send failed")
 	}
+	return nil
+}
+
+func (c *Client) Close() error {
+	if c == nil || c.client == 0 {
+		return nil
+	}
+	C.ca_close(c.client, c.port, c.inputPort)
+	c.client = 0
+	c.port = 0
+	c.inputPort = 0
 	return nil
 }
