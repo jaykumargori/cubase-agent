@@ -21,6 +21,9 @@ normalized 0–1).
 Run `cubase-agent mcp` to expose the reversible transport, selected-track
 mixer, EQ, and insert-write controls over a local stdio MCP server. It uses no
 network service and does not save, close, delete, render, or export projects.
+While it runs, feedback from Cubase is retained in a readback snapshot for
+`cubase.get_selected_track`, `cubase.get_eq`, `cubase.list_inserts`, and
+`cubase.get_insert_parameters`.
 
 ## License
 

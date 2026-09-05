@@ -10,12 +10,14 @@ import (
 	"strings"
 
 	"github.com/jaykumargori/cubase-agent/internal/cubase"
+	"github.com/jaykumargori/cubase-agent/internal/state"
 )
 
 const protocolVersion = "2025-03-26"
 
 type Server struct {
 	Controller cubase.Controller
+	State      *state.Store
 	In         io.Reader
 	Out        io.Writer
 }
@@ -77,6 +79,9 @@ func (s Server) handle(request request) error {
 		if err := json.Unmarshal(request.Params, &call); err != nil {
 			return s.writeError(request.ID, -32602, "invalid tools/call parameters")
 		}
+		if result, handled := s.read(call); handled {
+			return s.writeResult(request.ID, result)
+		}
 		if err := s.call(call); err != nil {
 			return s.writeResult(request.ID, toolResult(err.Error(), true))
 		}
@@ -84,6 +89,36 @@ func (s Server) handle(request request) error {
 	default:
 		return s.writeError(request.ID, -32601, "method not found")
 	}
+}
+
+func (s Server) read(call toolCall) (map[string]any, bool) {
+	if call.Name != "cubase.get_selected_track" && call.Name != "cubase.get_eq" && call.Name != "cubase.list_inserts" && call.Name != "cubase.get_insert_parameters" {
+		return nil, false
+	}
+	if s.State == nil || !s.State.Snapshot().ReadbackAvailable {
+		return toolResult("no Cubase feedback received yet; reload the MIDI Remote script with the desired track selected", true), true
+	}
+	snapshot := s.State.Snapshot()
+	switch call.Name {
+	case "cubase.get_selected_track":
+		return toolJSON(map[string]any{"mixer": snapshot.Mixer, "lastTransportEvent": snapshot.LastTransportEvent, "lastFeedbackAt": snapshot.LastFeedbackAt}), true
+	case "cubase.get_eq":
+		return toolJSON(snapshot.EQ), true
+	case "cubase.list_inserts":
+		return toolJSON(snapshot.Inserts), true
+	case "cubase.get_insert_parameters":
+		slot, err := number(call.Arguments, "slot", 1, 8)
+		if err != nil || math.Trunc(slot) != slot {
+			return toolResult("slot must be an integer from 1 to 8", true), true
+		}
+		for _, insert := range snapshot.Inserts {
+			if insert.Slot == int(slot) {
+				return toolJSON(insert.Parameters), true
+			}
+		}
+		return toolResult("no feedback for requested insert slot", true), true
+	}
+	return nil, false
 }
 
 func (s Server) call(call toolCall) error {
@@ -224,11 +259,23 @@ func toolResult(message string, isError bool) map[string]any {
 	return map[string]any{"content": []map[string]string{{"type": "text", "text": message}}, "isError": isError}
 }
 
+func toolJSON(value any) map[string]any {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return toolResult(err.Error(), true)
+	}
+	return map[string]any{"content": []map[string]string{{"type": "text", "text": string(encoded)}}, "structuredContent": value, "isError": false}
+}
+
 func tools() []map[string]any {
 	return []map[string]any{
 		tool("cubase.play", "Start Cubase transport.", map[string]any{}),
 		tool("cubase.stop", "Stop Cubase transport.", map[string]any{}),
 		tool("cubase.record", "Toggle Cubase transport recording. Use only in a disposable project.", map[string]any{}),
+		tool("cubase.get_selected_track", "Get event-derived selected-track mixer state. The track name is not available through the current MIDI Remote bridge.", map[string]any{}),
+		tool("cubase.get_eq", "Get event-derived values for the selected track's four EQ bands.", map[string]any{}),
+		tool("cubase.list_inserts", "List event-derived inserts on the selected track.", map[string]any{}),
+		tool("cubase.get_insert_parameters", "Get event-derived parameter data for an insert slot.", map[string]any{"slot": numberSchema(1, 8)}),
 		tool("cubase.set_volume", "Set the selected track volume as a normalized value.", map[string]any{"value": numberSchema(0, 1)}),
 		tool("cubase.set_pan", "Set the selected track pan from -1 (left) to 1 (right).", map[string]any{"value": numberSchema(-1, 1)}),
 		tool("cubase.set_mute", "Set mute on the selected track.", map[string]any{"enabled": map[string]any{"type": "boolean"}}),

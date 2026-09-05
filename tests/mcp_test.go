@@ -7,11 +7,26 @@ import (
 	"testing"
 
 	"github.com/jaykumargori/cubase-agent/internal/mcp"
+	"github.com/jaykumargori/cubase-agent/internal/protocol"
+	"github.com/jaykumargori/cubase-agent/internal/state"
 )
 
 type fakeController struct {
 	called string
 	value  float64
+}
+
+func TestMCPReadbackTools(t *testing.T) {
+	store := state.New()
+	store.Apply(protocol.Feedback{Type: protocol.Volume, Normalized: 0.5})
+	input := strings.NewReader("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"cubase.get_selected_track\",\"arguments\":{}}}\n")
+	output := &bytes.Buffer{}
+	if err := (mcp.Server{Controller: &fakeController{}, State: store, In: input, Out: output}).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "\"volume\":0.5") || !strings.Contains(output.String(), "\"structuredContent\"") {
+		t.Fatalf("unexpected readback result: %s", output.String())
+	}
 }
 
 func (f *fakeController) Play() error   { f.called = "play"; return nil }

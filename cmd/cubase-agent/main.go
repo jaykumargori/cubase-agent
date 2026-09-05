@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/jaykumargori/cubase-agent/internal/cubase"
 	"github.com/jaykumargori/cubase-agent/internal/mcp"
 	"github.com/jaykumargori/cubase-agent/internal/midi"
 	"github.com/jaykumargori/cubase-agent/internal/protocol"
+	"github.com/jaykumargori/cubase-agent/internal/state"
 	"math"
 	"os"
 	"strconv"
@@ -28,7 +30,9 @@ func main() {
 	b := cubase.Bridge{MIDI: c}
 	switch os.Args[1] {
 	case "mcp":
-		if err := (mcp.Server{Controller: &b, In: os.Stdin, Out: os.Stdout}).Run(); err != nil {
+		store := state.New()
+		go state.Pump(context.Background(), c, store)
+		if err := (mcp.Server{Controller: &b, State: store, In: os.Stdin, Out: os.Stdout}).Run(); err != nil {
 			fmt.Fprintln(os.Stderr, "[ERROR] MCP server:", err)
 			os.Exit(1)
 		}
