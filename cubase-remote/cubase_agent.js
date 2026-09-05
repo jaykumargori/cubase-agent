@@ -31,8 +31,8 @@ mute.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput
 solo.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 23).setTypeAbsolute()
 controlPage.makeValueBinding(volume.mSurfaceValue, selected.mValue.mVolume)
 controlPage.makeValueBinding(pan.mSurfaceValue, selected.mValue.mPan)
-controlPage.makeValueBinding(mute.mSurfaceValue, selected.mValue.mMute).setTypeToggle()
-controlPage.makeValueBinding(solo.mSurfaceValue, selected.mValue.mSolo).setTypeToggle()
+controlPage.makeValueBinding(mute.mSurfaceValue, selected.mValue.mMute)
+controlPage.makeValueBinding(solo.mSurfaceValue, selected.mValue.mSolo)
 var eq = selected.mChannelEQ
 for (var bi = 0; bi < 4; bi++) {
   var band = eq['mBand' + (bi + 1)]
@@ -47,7 +47,7 @@ for (var bi = 0; bi < 4; bi++) {
   controlPage.makeValueBinding(gain.mSurfaceValue, band.mGain)
   controlPage.makeValueBinding(freq.mSurfaceValue, band.mFreq)
   controlPage.makeValueBinding(quality.mSurfaceValue, band.mQ)
-  controlPage.makeValueBinding(on.mSurfaceValue, band.mOn).setTypeToggle()
+  controlPage.makeValueBinding(on.mSurfaceValue, band.mOn)
 }
 var insertViewer = selected.mInsertAndStripEffects.makeInsertEffectViewer('Selected Track Inserts')
 var insertIdentities = []
@@ -76,7 +76,7 @@ for (var ii = 0; ii < 8; ii++) {
   bindInsertIdentity(insertSlot, ii + 1)
   var bypass = deviceDriver.mSurface.makeButton(ii % 4 * 2, 24 + Math.floor(ii / 4) * 3, 2, 1)
   bypass.mSurfaceValue.mMidiBinding.setInputPort(midiInput).setOutputPort(midiOutput).bindToControlChange(0, 60 + ii).setTypeAbsolute()
-  controlPage.makeValueBinding(bypass.mSurfaceValue, insertSlot.mBypass).setTypeToggle()
+  controlPage.makeValueBinding(bypass.mSurfaceValue, insertSlot.mBypass)
 }
 var pluginSlot = selected.mInsertAndStripEffects.makeInsertEffectViewer('Selected Insert Parameters').accessSlotAtIndex(0)
 function bindParameterIdentity(parameterValue, parameterIndex) {

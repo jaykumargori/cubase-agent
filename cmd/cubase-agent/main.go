@@ -106,17 +106,15 @@ func main() {
 			fmt.Fprintln(os.Stderr, "band must be 1..4")
 			os.Exit(2)
 		}
-		v, err := strconv.ParseFloat(os.Args[4], 64)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "value must be numeric")
-			os.Exit(2)
-		}
 		switch os.Args[2] {
 		case "gain":
+			v := parseEQValue(os.Args[4])
 			report(b.SetEQGain(band, v), "eq.band.gain.set")
 		case "freq", "frequency":
+			v := parseEQValue(os.Args[4])
 			report(b.SetEQFrequency(band, v), "eq.band.frequency.set")
 		case "q":
+			v := parseEQValue(os.Args[4])
 			report(b.SetEQQ(band, v), "eq.band.q.set")
 		case "enable":
 			report(b.EnableEQBand(band, onOff(os.Args, 4)), "eq.band.enable")
@@ -128,6 +126,15 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
+}
+
+func parseEQValue(value string) float64 {
+	v, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "value must be numeric")
+		os.Exit(2)
+	}
+	return v
 }
 
 type midiOpenResult struct {
